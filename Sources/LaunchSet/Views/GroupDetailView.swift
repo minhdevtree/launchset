@@ -131,7 +131,7 @@ struct GroupDetailView: View {
                     Text(rule.timeLabel).monospacedDigit().frame(width: 48, alignment: .leading)
                     Text(rule.daysLabel)
                     Spacer()
-                    Text("Next: \(store.nextLabel(rule))").foregroundStyle(.secondary)
+                    Text(rule.isEnabled ? "Next: \(store.nextLabel(rule))" : "Off").foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) { editingRule = rule }

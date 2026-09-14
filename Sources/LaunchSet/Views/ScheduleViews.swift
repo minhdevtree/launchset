@@ -82,7 +82,12 @@ struct RuleEditor: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 4) {
                             ForEach(Schedule.displayWeekdays, id: \.self) { day in
-                                Toggle(Schedule.weekdayShort(day), isOn: dayBinding(day)).toggleStyle(.button)
+                                let on = rule.weekdays.contains(day)
+                                Button(Schedule.weekdayShort(day)) {
+                                    if on { rule.weekdays.remove(day) } else { rule.weekdays.insert(day) }
+                                }
+                                .buttonStyle(DayButtonStyle(isOn: on))
+                                .accessibilityAddTraits(on ? .isSelected : [])
                             }
                         }
                         HStack(spacing: 4) {
@@ -129,16 +134,24 @@ struct RuleEditor: View {
             })
     }
 
-    private func dayBinding(_ day: Int) -> Binding<Bool> {
-        Binding(get: { rule.weekdays.contains(day) },
-                set: { on in if on { rule.weekdays.insert(day) } else { rule.weekdays.remove(day) } })
-    }
-
     private var conflict: String? {
         let others = store.config.rules.filter { $0.id != rule.id }
         guard let pair = Schedule.conflicts(in: others + [rule]).first(where: { $0.0 == rule.id || $0.1 == rule.id }),
               let other = others.first(where: { $0.id == pair.0 || $0.id == pair.1 })
         else { return nil }
         return "Same time as the \(other.action.label) \(other.timeLabel) schedule for this group."
+    }
+}
+
+/// Selected days are filled with the accent color so they stand out in light and dark mode.
+private struct DayButtonStyle: ButtonStyle {
+    let isOn: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 38, height: 22)
+            .foregroundStyle(isOn ? Color.white : Color.primary)
+            .background(isOn ? Color.accentColor : Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 5))
+            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
