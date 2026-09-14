@@ -84,7 +84,7 @@ final class CommandServer {
     // MARK: Commands
 
     private func status() -> String {
-        var lines = [store.nextLine(now: .now)]
+        var lines = [scheduler.nextLine(now: .now)]
         for w in scheduler.warnings {
             let name = store.group(w.groupID)?.name ?? ""
             lines.append("Closing \"\(name)\" at \(time(w.closeAt)). Run launchset snooze \(name) or launchset skip \(name).")
@@ -114,7 +114,7 @@ final class CommandServer {
         guard !store.config.rules.isEmpty else { return "No schedules yet." }
         return CLI.table(store.config.rules.map { rule in
             [rule.isEnabled ? "on" : "off", store.group(rule.groupID)?.name ?? "Deleted group",
-             rule.action.label, rule.timeLabel, rule.daysLabel, store.nextLabel(rule)]
+             rule.action.label, rule.timeLabel, rule.daysLabel, scheduler.nextLabel(rule)]
         })
     }
 

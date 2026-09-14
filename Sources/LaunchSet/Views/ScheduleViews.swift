@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SchedulesView: View {
     @Environment(AppStore.self) private var store
+    @Environment(Scheduler.self) private var scheduler
     @ViewState private var selection: Set<UUID> = []
     @ViewState private var editing: ScheduleRule?
 
@@ -36,7 +37,7 @@ struct SchedulesView: View {
                     TableColumn("Time") { rule in Text(rule.timeLabel).monospacedDigit() }
                         .width(50)
                     TableColumn("Days") { rule in Text(rule.daysLabel) }
-                    TableColumn("Next Run") { rule in Text(store.nextLabel(rule)) }
+                    TableColumn("Next Run") { rule in Text(scheduler.nextLabel(rule)) }
                 }
                 .contextMenu(forSelectionType: UUID.self) { ids in
                     Button("Edit…") { edit(ids) }.disabled(ids.count != 1)

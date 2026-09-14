@@ -4,6 +4,7 @@ import SwiftUI
 
 struct GroupDetailView: View {
     @Environment(AppStore.self) private var store
+    @Environment(Scheduler.self) private var scheduler
     let groupID: UUID
     @ViewState private var selectedApps: Set<String> = []
     @ViewState private var editingRule: ScheduleRule?
@@ -137,7 +138,7 @@ struct GroupDetailView: View {
                     Text(rule.timeLabel).monospacedDigit().frame(width: 48, alignment: .leading)
                     Text(rule.daysLabel)
                     Spacer()
-                    Text(rule.isEnabled ? "Next: \(store.nextLabel(rule))" : "Off").foregroundStyle(.secondary)
+                    Text(rule.isEnabled ? "Next: \(scheduler.nextLabel(rule))" : "Off").foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) { editingRule = rule }

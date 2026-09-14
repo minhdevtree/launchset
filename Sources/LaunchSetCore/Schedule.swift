@@ -15,7 +15,11 @@ public struct DueEvent: Hashable, Sendable {
     }
 
     /// ruleID + original time, the key for snooze and skip.
-    public var occurrenceKey: String { "\(ruleID.uuidString)@\(Int(occurrence.timeIntervalSince1970))" }
+    public var occurrenceKey: String { Self.key(ruleID: ruleID, occurrence: occurrence) }
+
+    public static func key(ruleID: UUID, occurrence: Date) -> String {
+        "\(ruleID.uuidString)@\(Int(occurrence.timeIntervalSince1970))"
+    }
 }
 
 public enum Schedule {
@@ -39,6 +43,33 @@ public enum Schedule {
                               matching: DateComponents(hour: rule.hour, minute: rule.minute, second: 0, weekday: weekday),
                               matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
         }.min()
+    }
+
+    /// When a rule really runs next: skipped runs are passed over and a snoozed close counts at its snoozed time.
+    /// `skipped` and `snoozed` are keyed by `DueEvent.key`; `snoozed` maps to the new close time.
+    public static func upcoming(_ rule: ScheduleRule, now: Date, calendar: Calendar,
+                                skipped: Set<String> = [], snoozed: [String: Date] = [:]) -> Date? {
+        guard rule.isEnabled else { return nil }
+        let prefix = "\(rule.id.uuidString)@"
+        var candidates = snoozed.filter { $0.key.hasPrefix(prefix) && $0.value > now }.map(\.value)
+        var after = now
+        while let next = nextOccurrence(of: rule, after: after, calendar: calendar) {
+            let key = DueEvent.key(ruleID: rule.id, occurrence: next)
+            guard skipped.contains(key) || snoozed[key] != nil else {
+                candidates.append(next)
+                break
+            }
+            after = next
+        }
+        return candidates.min()
+    }
+
+    /// Earliest `upcoming` run across all rules.
+    public static func nextRun(rules: [ScheduleRule], now: Date, calendar: Calendar,
+                               skipped: Set<String> = [], snoozed: [String: Date] = [:]) -> (rule: ScheduleRule, date: Date)? {
+        rules.compactMap { rule in
+            upcoming(rule, now: now, calendar: calendar, skipped: skipped, snoozed: snoozed).map { (rule, $0) }
+        }.min { $0.1 < $1.1 }
     }
 
     /// Events whose fireAt falls in (from, now]. Only the latest one per (rule, kind).

@@ -55,7 +55,7 @@ struct MenuBarView: View {
                 .controlSize(.small)
             }
             TimelineView(.everyMinute) { context in
-                Text(store.nextLine(now: context.date))
+                Text(scheduler.nextLine(now: context.date))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

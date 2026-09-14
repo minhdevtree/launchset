@@ -18,7 +18,7 @@ final class Scheduler {
 
     // ponytail: snooze and skip state lives in memory and is lost on restart; persist it if that turns out to matter.
     private(set) var warnings: [Warning] = []
-    @ObservationIgnored private var skipped: Set<String> = []
+    private var skipped: Set<String> = []
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var lastCheckedAt = Date() {
         didSet { UserDefaults.standard.set(lastCheckedAt, forKey: "lastCheckedAt") }
@@ -121,6 +121,32 @@ final class Scheduler {
             for (action, groupID) in jobs { await runScheduled(action, groupID: groupID) }
         }
     }
+
+    // MARK: Next run
+
+    private var snoozed: [String: Date] {
+        Dictionary(warnings.filter { $0.closeAt > $0.occurrence }.map { ($0.key, $0.closeAt) }, uniquingKeysWith: max)
+    }
+
+    /// "Today, 18:00" for one rule, or "Off" / "None".
+    func nextLabel(_ rule: ScheduleRule) -> String {
+        guard rule.isEnabled else { return "Off" }
+        guard let next = Schedule.upcoming(rule, now: .now, calendar: .current, skipped: skipped, snoozed: snoozed) else { return "None" }
+        return Schedule.relativeLabel(next, now: .now, calendar: .current)
+    }
+
+    /// "Next: Close "Work" at 18:00 today", shown in the menu bar and by `launchset status`.
+    func nextLine(now: Date) -> String {
+        if store.config.settings.schedulesPaused { return "All schedules are paused" }
+        guard let next = Schedule.nextRun(rules: store.config.rules, now: now, calendar: .current, skipped: skipped, snoozed: snoozed),
+              let group = store.group(next.rule.groupID)
+        else { return "No schedules turned on" }
+        let parts = Schedule.relativeParts(next.date, now: now, calendar: .current)
+        let day = ["Today", "Tomorrow"].contains(parts.day) ? parts.day.lowercased() : "on \(parts.day)"
+        return "Next: \(next.rule.action.label) \"\(group.name)\" at \(parts.time) \(day)"
+    }
+
+    // MARK: Snooze and skip
 
     func snooze(_ key: String) {
         guard let i = warnings.firstIndex(where: { $0.key == key }) else { return }

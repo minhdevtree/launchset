@@ -174,28 +174,6 @@ final class AppStore {
         })
     }
 
-    func nextLabel(_ rule: ScheduleRule) -> String {
-        guard rule.isEnabled else { return "Off" }
-        guard let next = Schedule.nextOccurrence(of: rule, after: .now, calendar: .current) else { return "None" }
-        return Schedule.relativeLabel(next, now: .now, calendar: .current)
-    }
-
-    /// "Next: Close "Work" at 18:00 today", shown in the menu bar and by `launchset status`.
-    func nextLine(now: Date) -> String {
-        if config.settings.schedulesPaused { return "All schedules are paused" }
-        guard let next = nextRun(now: now), let group = group(next.rule.groupID) else { return "No schedules turned on" }
-        let parts = Schedule.relativeParts(next.date, now: now, calendar: .current)
-        let day = ["Today", "Tomorrow"].contains(parts.day) ? parts.day.lowercased() : "on \(parts.day)"
-        return "Next: \(next.rule.action.label) \"\(group.name)\" at \(parts.time) \(day)"
-    }
-
-    /// Earliest upcoming run across enabled rules.
-    func nextRun(now: Date) -> (rule: ScheduleRule, date: Date)? {
-        config.rules.filter(\.isEnabled)
-            .compactMap { r in Schedule.nextOccurrence(of: r, after: now, calendar: .current).map { (r, $0) } }
-            .min { $0.1 < $1.1 }
-    }
-
     // MARK: Running groups
 
     @discardableResult
@@ -203,6 +181,8 @@ final class AppStore {
         guard let g = group(groupID) else { return nil }
         let start = Date()
         let results = await runner.run(action, group: g, quitTimeout: config.settings.quitTimeoutSeconds, force: force)
+        // didLaunch arrives only once an app finishes launching, so the running count would lag behind the run.
+        refreshRunning()
         let record = RunRecord(date: start, groupID: g.id, groupName: g.name, action: action, source: source, results: results)
         addHistory(record)
         if source == .manual { showFlash(record.flash, for: g.id) }

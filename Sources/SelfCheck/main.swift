@@ -135,6 +135,19 @@ check(lineRecord.line(now: vnd("2026-09-18 20:00:00"), calendar: vn) == "18:00 Â
 let request = try! JSON.decoder().decode(CLIRequest.self, from: JSON.encoder().encode(CLIRequest(args: ["open", "Agent", "only"])))
 check(request.args == ["open", "Agent", "only"], "18d. CLIRequest round trip")
 
+// 19: next run with skip and snooze
+let skipKey = DueEvent.key(ruleID: close18.id, occurrence: vnd("2026-09-18 18:00:00"))
+let friMorning = vnd("2026-09-18 09:00:00")
+check(Schedule.upcoming(close18, now: friMorning, calendar: vn) == vnd("2026-09-18 18:00:00"), "19a. upcoming without skip")
+check(Schedule.upcoming(close18, now: friMorning, calendar: vn, skipped: [skipKey]) == vnd("2026-09-21 18:00:00"),
+      "19b. a skipped run is passed over")
+check(Schedule.upcoming(close18, now: vnd("2026-09-18 18:05:00"), calendar: vn, snoozed: [skipKey: vnd("2026-09-18 18:10:00")])
+      == vnd("2026-09-18 18:10:00"), "19c. a snoozed close counts at its new time")
+check(Schedule.upcoming(close18, now: vnd("2026-09-18 17:59:00"), calendar: vn, snoozed: [skipKey: vnd("2026-09-18 18:10:00")])
+      == vnd("2026-09-18 18:10:00"), "19d. the original time of a snoozed close is passed over")
+check(Schedule.nextRun(rules: [close18, early], now: friMorning, calendar: vn)?.rule.id == early.id
+      && Schedule.upcoming(disabled, now: friMorning, calendar: vn) == nil, "19e. nextRun picks the earliest; disabled rules have none")
+
 // Labels
 check(Schedule.relativeLabel(vnd("2026-09-18 18:00:00"), now: vnd("2026-09-18 09:00:00"), calendar: vn) == "Today, 18:00", "14a. Today")
 check(Schedule.relativeLabel(vnd("2026-09-21 08:30:00"), now: vnd("2026-09-18 19:00:00"), calendar: vn) == "Monday, 08:30", "14b. Weekday")
