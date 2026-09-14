@@ -83,6 +83,10 @@ If `config.json` can't be read, LaunchSet renames it to `config.corrupt-<date>.j
 - Schedules only run while LaunchSet is running. Turn on Launch at login to avoid missing them.
 - The warning before a scheduled close only covers Close schedules. A scheduled Open quits "Close on open" apps without warning first.
 
+## Working on the code
+
+Start with `AGENTS.md`. It lists the project skills in `.claude/skills/` (architecture, build and verify, testing on a real Mac, scheduling, the command line, UI copy) and the rules every change follows.
+
 ## License
 
 MIT
