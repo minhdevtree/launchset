@@ -17,7 +17,8 @@ struct MainWindow: View {
                         Label(group.name.isEmpty ? "Untitled" : group.name, systemImage: group.symbol)
                             .tag(SidebarItem.group(group.id))
                             .contextMenu {
-                                Button("Force Quit All…") { store.confirmForceClose(group.id) }
+                                Button("Force Close…") { store.confirmForceClose(group.id) }
+                                .disabled(group.plan(for: .close).quit.isEmpty)
                                 Divider()
                                 Button("Delete Group…", role: .destructive) { store.deleteGroup(group.id) }
                             }

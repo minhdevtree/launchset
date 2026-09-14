@@ -1,15 +1,44 @@
 import Foundation
 
+/// What a group's Open and Close do to one app.
+public enum AppRole: String, Codable, CaseIterable, Sendable {
+    /// Open opens it, Close quits it.
+    case openAndClose
+    /// Open opens it, Close leaves it running.
+    case openOnly
+    /// Open quits it, Close leaves it alone.
+    case closeOnOpen
+
+    public var label: String {
+        switch self {
+        case .openAndClose: "Open and close"
+        case .openOnly: "Open only"
+        case .closeOnOpen: "Close on open"
+        }
+    }
+}
+
 public struct AppRef: Codable, Hashable, Identifiable, Sendable {
     public var bundleID: String
     public var name: String
     public var lastKnownPath: String
+    public var role: AppRole
     public var id: String { bundleID }
 
-    public init(bundleID: String, name: String, lastKnownPath: String) {
+    public init(bundleID: String, name: String, lastKnownPath: String, role: AppRole = .openAndClose) {
         self.bundleID = bundleID
         self.name = name
         self.lastKnownPath = lastKnownPath
+        self.role = role
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        bundleID = try c.decode(String.self, forKey: .bundleID)
+        name = try c.decode(String.self, forKey: .name)
+        lastKnownPath = try c.decode(String.self, forKey: .lastKnownPath)
+        // Added after v1 shipped; files written before it have no role.
+        role = try c.decodeIfPresent(AppRole.self, forKey: .role) ?? .openAndClose
     }
 }
 
@@ -37,6 +66,14 @@ public struct AppGroup: Codable, Hashable, Identifiable, Sendable {
 
     public static let symbols = ["briefcase", "gamecontroller", "book", "hammer", "paintbrush", "music.note",
                                  "film", "message", "chart.bar", "house", "moon", "square.stack"]
+
+    /// Apps an action opens and apps it quits, each in group order.
+    public func plan(for action: GroupAction) -> (open: [AppRef], quit: [AppRef]) {
+        switch action {
+        case .open: (apps.filter { $0.role != .closeOnOpen }, apps.filter { $0.role == .closeOnOpen })
+        case .close: ([], apps.filter { $0.role == .openAndClose })
+        }
+    }
 }
 
 public enum GroupAction: String, Codable, CaseIterable, Sendable {
@@ -129,6 +166,9 @@ public enum AppOutcome: String, Codable, Sendable {
 
     /// The app ended up in the state the command asked for.
     public var isSuccess: Bool { ![.notFound, .openFailed, .notClosed].contains(self) }
+
+    /// The result of trying to open the app, as opposed to quitting it.
+    public var isOpening: Bool { [.opened, .alreadyRunning, .notFound, .openFailed].contains(self) }
 }
 
 public struct AppResult: Codable, Hashable, Sendable {
@@ -179,12 +219,24 @@ public struct RunRecord: Codable, Hashable, Identifiable, Sendable {
     /// "3 closed, 1 still open"
     public var summary: String {
         if let note { return note }
-        if results.isEmpty { return "No apps in the group" }
+        if results.isEmpty { return "No apps to \(action == .open ? "open" : "close")" }
         var counts: [(AppOutcome, Int)] = []
         for r in results {
             if let i = counts.firstIndex(where: { $0.0 == r.outcome }) { counts[i].1 += 1 } else { counts.append((r.outcome, 1)) }
         }
         return counts.map { "\($0.1) \($0.0.label.lowercased())" }.joined(separator: ", ")
+    }
+
+    /// Short inline result of a manual run: "Opened 3 of 4 apps", or "Opened 1 of 1, closed 3 of 3" when Open also quits apps.
+    public var flash: String {
+        let opens = results.filter { $0.outcome.isOpening }
+        let quits = results.filter { !$0.outcome.isOpening }
+        var parts: [String] = []
+        if !opens.isEmpty { parts.append("opened \(opens.filter { $0.outcome.isSuccess }.count) of \(opens.count)") }
+        if !quits.isEmpty { parts.append("closed \(quits.filter { $0.outcome.isSuccess }.count) of \(quits.count)") }
+        guard !parts.isEmpty else { return summary }
+        let text = parts.count == 1 ? "\(parts[0]) apps" : parts.joined(separator: ", ")
+        return text.prefix(1).uppercased() + text.dropFirst()
     }
 }
 

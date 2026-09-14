@@ -15,9 +15,9 @@ final class AppRunner {
         let previous = tail
         let job = Task {
             await previous?.value
-            return action == .open
-                ? await open(group)
-                : await close(group, timeout: quitTimeout, force: force)
+            let plan = group.plan(for: action)
+            let opened = await open(plan.open, in: group)
+            return opened + (await close(plan.quit, in: group, timeout: quitTimeout, force: force))
         }
         tail = Task { _ = await job.value }
         let results = await job.value
@@ -31,9 +31,9 @@ final class AppRunner {
         return FileManager.default.fileExists(atPath: app.lastKnownPath) ? URL(fileURLWithPath: app.lastKnownPath) : nil
     }
 
-    private func open(_ group: AppGroup) async -> [AppResult] {
+    private func open(_ apps: [AppRef], in group: AppGroup) async -> [AppResult] {
         var results: [AppResult] = []
-        for (i, app) in group.apps.enumerated() {
+        for (i, app) in apps.enumerated() {
             func add(_ outcome: AppOutcome, _ error: String? = nil) {
                 results.append(AppResult(bundleID: app.bundleID, name: app.name, outcome: outcome, error: error))
             }
@@ -51,7 +51,7 @@ final class AppRunner {
             do {
                 _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
                 add(.opened)
-                if group.launchDelaySeconds > 0, i < group.apps.count - 1 {
+                if group.launchDelaySeconds > 0, i < apps.count - 1 {
                     try? await Task.sleep(for: .seconds(group.launchDelaySeconds))
                 }
             } catch {
@@ -61,9 +61,10 @@ final class AppRunner {
         return results
     }
 
-    private func close(_ group: AppGroup, timeout: Int, force: Bool) async -> [AppResult] {
+    private func close(_ apps: [AppRef], in group: AppGroup, timeout: Int, force: Bool) async -> [AppResult] {
         // Never quit system apps, even if someone edited config.json by hand.
-        let apps = group.apps.filter { !Blocklist.contains($0.bundleID) }
+        let apps = apps.filter { !Blocklist.contains($0.bundleID) }
+        guard !apps.isEmpty else { return [] }
         let instances = apps.map { NSRunningApplication.runningApplications(withBundleIdentifier: $0.bundleID) }
         let all = instances.flatMap { $0 }
         if force {

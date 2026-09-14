@@ -84,7 +84,7 @@ check(ScheduleRule(groupID: group, action: .open, hour: 8, minute: 5, weekdays: 
 
 // 12: Config roundtrip
 let config = Config(groups: [AppGroup(id: group, name: "Work", symbol: "briefcase",
-                                      apps: [AppRef(bundleID: "com.apple.TextEdit", name: "TextEdit", lastKnownPath: "/System/Applications/TextEdit.app")],
+                                      apps: [AppRef(bundleID: "com.apple.TextEdit", name: "TextEdit", lastKnownPath: "/System/Applications/TextEdit.app", role: .closeOnOpen)],
                                       launchDelaySeconds: 3, hideAfterOpen: true, quitPolicy: .forceQuit)],
                     rules: [close18, weekend], settings: AppSettings(warnBeforeCloseMinutes: 5, schedulesPaused: true))
 let decoded = try! JSON.decoder().decode(Config.self, from: try! JSON.encoder().encode(config))
@@ -102,6 +102,26 @@ let fb1 = Schedule.nextOccurrence(of: fallBack, after: date("2027-11-07 00:00:00
 let fb2 = fb1.flatMap { Schedule.nextOccurrence(of: fallBack, after: $0, calendar: ny) }
 check(fb1.map { ny.component(.day, from: $0) } == 7 && fb2.map { ny.component(.day, from: $0) } == 8,
       "13b. Repeated hour 2027-11-07 01:30 -> first one only")
+
+// 17: app roles
+let te = AppRef(bundleID: "te", name: "TextEdit", lastKnownPath: "")
+let csm = AppRef(bundleID: "csm", name: "Claude Session Manager", lastKnownPath: "", role: .openOnly)
+let slack = AppRef(bundleID: "slack", name: "Slack", lastKnownPath: "", role: .closeOnOpen)
+let mixed = AppGroup(name: "Agent", apps: [csm, te, slack])
+check(mixed.plan(for: .open).open.map(\.bundleID) == ["csm", "te"] && mixed.plan(for: .open).quit.map(\.bundleID) == ["slack"],
+      "17a. Open opens open-only and default apps, quits close-on-open apps")
+check(mixed.plan(for: .close).open.isEmpty && mixed.plan(for: .close).quit.map(\.bundleID) == ["te"],
+      "17b. Close quits only default apps")
+let oldJSON = #"{"bundleID":"com.apple.TextEdit","name":"TextEdit","lastKnownPath":"/System/Applications/TextEdit.app"}"#
+check((try? JSON.decoder().decode(AppRef.self, from: Data(oldJSON.utf8)))?.role == .openAndClose, "17c. AppRef without role decodes as open and close")
+let focus = RunRecord(date: .now, groupID: group, groupName: "Agent", action: .open, source: .manual, results: [
+    AppResult(bundleID: "csm", name: "CSM", outcome: .opened), AppResult(bundleID: "slack", name: "Slack", outcome: .closed),
+    AppResult(bundleID: "mail", name: "Mail", outcome: .notClosed),
+])
+check(focus.flash == "Opened 1 of 1, closed 1 of 2", "17d. flash for Open that also closes apps")
+check(RunRecord(date: .now, groupID: group, groupName: "A", action: .close, source: .manual,
+                results: [AppResult(bundleID: "a", name: "A", outcome: .closed), AppResult(bundleID: "b", name: "B", outcome: .notClosed)]).flash
+      == "Closed 1 of 2 apps", "17e. flash for plain Close")
 
 // Labels
 check(Schedule.relativeLabel(vnd("2026-09-18 18:00:00"), now: vnd("2026-09-18 09:00:00"), calendar: vn) == "Today, 18:00", "14a. Today")

@@ -53,9 +53,9 @@ struct GroupDetailView: View {
             }
             let busy = store.runner.isBusy(groupID)
             if busy { ProgressView().controlSize(.small) }
-            Button("Open All") { Task { await store.run(.open, groupID: groupID, source: .manual) } }
+            Button("Open Group") { Task { await store.run(.open, groupID: groupID, source: .manual) } }
                 .disabled(busy)
-            Button("Close All") { Task { await store.run(.close, groupID: groupID, source: .manual) } }
+            Button("Close Group") { Task { await store.run(.close, groupID: groupID, source: .manual) } }
                 .disabled(busy)
         }
     }
@@ -63,7 +63,7 @@ struct GroupDetailView: View {
     private func appsSection(_ g: AppGroup) -> some View {
         Section {
             ForEach(g.apps) { app in
-                AppRow(app: app, isRunning: store.running.contains(app.bundleID))
+                AppRow(app: app, role: roleBinding(app.bundleID), isRunning: store.running.contains(app.bundleID))
                     .contextMenu {
                         Button("Remove from Group") {
                             removeApps(selectedApps.contains(app.bundleID) ? selectedApps : [app.bundleID])
@@ -75,6 +75,12 @@ struct GroupDetailView: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .selectionDisabled()
+            if g.apps.contains(where: { $0.role != .openAndClose }) {
+                Text("Open only apps keep running when you close the group. Close on open apps quit when the group opens and stay untouched when it closes.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .selectionDisabled()
+            }
         } header: {
             HStack {
                 Text("Apps")
@@ -164,6 +170,14 @@ struct GroupDetailView: View {
         errorMessage = store.addApps(urls: panel.urls, to: groupID)
     }
 
+    private func roleBinding(_ bundleID: String) -> Binding<AppRole> {
+        Binding(get: { group.wrappedValue.apps.first { $0.bundleID == bundleID }?.role ?? .openAndClose },
+                set: { role in
+                    guard let i = group.wrappedValue.apps.firstIndex(where: { $0.bundleID == bundleID }) else { return }
+                    group.wrappedValue.apps[i].role = role
+                })
+    }
+
     private func removeApps(_ ids: Set<String>) {
         group.wrappedValue.apps.removeAll { ids.contains($0.bundleID) }
         selectedApps.subtract(ids)
@@ -172,6 +186,7 @@ struct GroupDetailView: View {
 
 private struct AppRow: View {
     let app: AppRef
+    @Binding var role: AppRole
     let isRunning: Bool
 
     var body: some View {
@@ -184,6 +199,13 @@ private struct AppRow: View {
             Text(app.name).frame(minWidth: 120, alignment: .leading)
             Text(app.bundleID).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             Spacer()
+            Picker("Role", selection: $role) {
+                ForEach(AppRole.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            .labelsHidden()
+            .fixedSize()
+            .controlSize(.small)
+            .help("What the group's Open and Close do to this app")
             if isRunning {
                 Label("Running", systemImage: "circle.fill").foregroundStyle(.green)
             } else if url == nil {

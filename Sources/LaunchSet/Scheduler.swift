@@ -88,10 +88,12 @@ final class Scheduler {
             let key = event.occurrenceKey
             switch event.kind {
             case .warn:
-                // A warning for a close that already happened is useless.
-                guard event.occurrence > now, !skipped.contains(key), !warnings.contains(where: { $0.key == key }) else { continue }
+                let appCount = group.plan(for: .close).quit.count
+                // A warning for a close that already happened, or one that quits nothing, is useless.
+                guard event.occurrence > now, appCount > 0, !skipped.contains(key),
+                      !warnings.contains(where: { $0.key == key }) else { continue }
                 warnings.append(Warning(key: key, ruleID: rule.id, groupID: group.id, occurrence: event.occurrence, closeAt: event.occurrence))
-                notifier.warn(key: key, groupName: group.name, appCount: group.apps.count, closeAt: event.occurrence,
+                notifier.warn(key: key, groupName: group.name, appCount: appCount, closeAt: event.occurrence,
                               snoozeMinutes: settings.snoozeMinutes)
             case .run:
                 if skipped.remove(key) != nil {
@@ -147,17 +149,20 @@ final class Scheduler {
     private func runScheduled(_ action: GroupAction, groupID: UUID) async {
         guard let record = await store.run(action, groupID: groupID, source: .scheduled) else { return }
         let failed = record.results.filter { !$0.outcome.isSuccess }
-        if failed.isEmpty {
-            if store.config.settings.notifyOnSuccess {
-                notifier.post(title: "\(action == .open ? "Opened" : "Closed") \"\(record.groupName)\"", body: record.summary)
-            }
-        } else if action == .close {
-            let names = failed.map(\.name).joined(separator: ", ")
+        if failed.isEmpty, store.config.settings.notifyOnSuccess {
+            notifier.post(title: "\(action == .open ? "Opened" : "Closed") \"\(record.groupName)\"", body: record.summary)
+        }
+        // Open can quit apps too (Close on open), so both kinds of failure can show up for either action.
+        let stillOpen = failed.filter { $0.outcome == .notClosed }
+        if !stillOpen.isEmpty {
+            let one = stillOpen.count == 1
             notifier.post(title: "Some apps didn't close",
-                          body: "\(names) \(failed.count == 1 ? "is" : "are") still open after \(store.config.settings.quitTimeoutSeconds) seconds. \(failed.count == 1 ? "It" : "They") may be waiting for you to save a file.")
-        } else {
+                          body: "\(stillOpen.map(\.name).joined(separator: ", ")) \(one ? "is" : "are") still open after \(store.config.settings.quitTimeoutSeconds) seconds. \(one ? "It" : "They") may be waiting for you to save a file.")
+        }
+        let notOpened = failed.filter { $0.outcome != .notClosed }
+        if !notOpened.isEmpty {
             notifier.post(title: "Some apps in \"\(record.groupName)\" didn't open",
-                          body: failed.map { "\($0.name): \($0.label)" }.joined(separator: "\n"))
+                          body: notOpened.map { "\($0.name): \($0.label)" }.joined(separator: "\n"))
         }
     }
 }

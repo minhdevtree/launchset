@@ -154,7 +154,11 @@ final class AppStore {
         running = Set(NSWorkspace.shared.runningApplications.filter { !$0.isTerminated }.compactMap(\.bundleIdentifier))
     }
 
-    func runningCount(_ group: AppGroup) -> Int { group.apps.filter { running.contains($0.bundleID) }.count }
+    /// "1/1 running" counts only the apps the group opens, so apps it closes on open don't make it look half off.
+    func runningLabel(_ group: AppGroup) -> String {
+        let apps = group.plan(for: .open).open
+        return "\(apps.filter { running.contains($0.bundleID) }.count)/\(apps.count) running"
+    }
 
     // MARK: Schedules
 
@@ -193,16 +197,16 @@ final class AppStore {
         let results = await runner.run(action, group: g, quitTimeout: config.settings.quitTimeoutSeconds, force: force)
         let record = RunRecord(date: start, groupID: g.id, groupName: g.name, action: action, source: source, results: results)
         addHistory(record)
-        if source == .manual {
-            let ok = results.filter { $0.outcome.isSuccess }.count
-            showFlash("\(action == .open ? "Opened" : "Closed") \(ok) of \(results.count) apps", for: g.id)
-        }
+        if source == .manual { showFlash(record.flash, for: g.id) }
         return record
     }
 
+    /// Force quits what Close would quit.
     func confirmForceClose(_ groupID: UUID) {
-        guard let g = group(groupID),
-              confirm(title: "Force quit \(g.apps.count) apps in \"\(g.name)\"?",
+        guard let g = group(groupID) else { return }
+        let count = g.plan(for: .close).quit.count
+        guard count > 0,
+              confirm(title: "Force quit \(count) \(count == 1 ? "app" : "apps") in \"\(g.name)\"?",
                       message: "Unsaved changes in these apps will be lost.", ok: "Force Quit", destructive: true)
         else { return }
         Task { await run(.close, groupID: groupID, source: .manual, force: true) }

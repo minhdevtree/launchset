@@ -107,7 +107,7 @@ private struct GroupRow: View {
             Image(systemName: group.symbol).frame(width: 20)
             VStack(alignment: .leading, spacing: 1) {
                 Text(group.name).lineLimit(1)
-                Text(store.flash[group.id] ?? "\(store.runningCount(group))/\(group.apps.count) running")
+                Text(store.flash[group.id] ?? store.runningLabel(group))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -123,7 +123,8 @@ private struct GroupRow: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .contextMenu {
-            Button("Force Quit All…") { store.confirmForceClose(group.id) }
+            Button("Force Close…") { store.confirmForceClose(group.id) }
+                .disabled(group.plan(for: .close).quit.isEmpty)
         }
     }
 }

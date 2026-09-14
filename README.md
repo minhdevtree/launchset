@@ -7,7 +7,8 @@ Make a group such as "Work" with Slack, Chrome and VS Code. Open the whole group
 ## Features
 
 - Groups of apps, each with an SF Symbol icon. Add apps from `/Applications`, from the apps that are running, or by dropping `.app` files onto the list. Drag to set the launch order.
-- Open or close a group from the menu bar or the manager window. Right-click a group to force quit all of its apps.
+- Each app in a group has a role. "Open and close" is the default. "Open only" apps keep running when you close the group. "Close on open" apps quit when the group opens, so one group can open the app you want to work in and quit the ones that distract you, in a single click or schedule.
+- Open or close a group from the menu bar or the manager window. Right-click a group to force close it.
 - Schedules with a time and days of the week. The app warns about two schedules that open and close the same group at the same time.
 - A notification before a scheduled close, with Snooze and Skip. The same buttons show in the menu bar, so they work with notifications turned off.
 - Closing works like pressing Command-Q, so apps can still ask you to save. If an app hasn't quit after a timeout, LaunchSet either leaves it open and tells you, or force quits it. You pick per group.
@@ -61,6 +62,7 @@ If `config.json` can't be read, LaunchSet renames it to `config.corrupt-<date>.j
 
 - Snooze and skip are kept in memory, so they are forgotten if LaunchSet restarts during a warning.
 - Schedules only run while LaunchSet is running. Turn on Launch at login to avoid missing them.
+- The warning before a scheduled close only covers Close schedules. A scheduled Open quits "Close on open" apps without warning first.
 
 ## License
 
