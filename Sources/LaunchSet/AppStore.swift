@@ -24,8 +24,7 @@ final class AppStore {
     @ObservationIgnored private var canSave = true
 
     init() {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("LaunchSet")
+        let dir = CLI.dataDirectory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         configURL = dir.appendingPathComponent("config.json")
         historyURL = dir.appendingPathComponent("history.json")
@@ -179,6 +178,15 @@ final class AppStore {
         guard rule.isEnabled else { return "Off" }
         guard let next = Schedule.nextOccurrence(of: rule, after: .now, calendar: .current) else { return "None" }
         return Schedule.relativeLabel(next, now: .now, calendar: .current)
+    }
+
+    /// "Next: Close "Work" at 18:00 today", shown in the menu bar and by `launchset status`.
+    func nextLine(now: Date) -> String {
+        if config.settings.schedulesPaused { return "All schedules are paused" }
+        guard let next = nextRun(now: now), let group = group(next.rule.groupID) else { return "No schedules turned on" }
+        let parts = Schedule.relativeParts(next.date, now: now, calendar: .current)
+        let day = ["Today", "Tomorrow"].contains(parts.day) ? parts.day.lowercased() : "on \(parts.day)"
+        return "Next: \(next.rule.action.label) \"\(group.name)\" at \(parts.time) \(day)"
     }
 
     /// Earliest upcoming run across enabled rules.

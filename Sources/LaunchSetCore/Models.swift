@@ -227,6 +227,13 @@ public struct RunRecord: Codable, Hashable, Identifiable, Sendable {
         return counts.map { "\($0.1) \($0.0.label.lowercased())" }.joined(separator: ", ")
     }
 
+    /// "18:00 · Close "Work" · Scheduled · 3 closed, 1 still open". Older days get a day prefix.
+    public func line(now: Date, calendar: Calendar) -> String {
+        let parts = Schedule.relativeParts(date, now: now, calendar: calendar)
+        let when = calendar.isDate(date, inSameDayAs: now) ? parts.time : "\(parts.day) \(parts.time)"
+        return "\(when) · \(action.label) \"\(groupName)\" · \(source.label) · \(summary)"
+    }
+
     /// Short inline result of a manual run: "Opened 3 of 4 apps", or "Opened 1 of 1, closed 3 of 3" when Open also quits apps.
     public var flash: String {
         let opens = results.filter { $0.outcome.isOpening }

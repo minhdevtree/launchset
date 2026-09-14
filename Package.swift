@@ -8,5 +8,6 @@ let package = Package(
         .target(name: "LaunchSetCore"),
         .executableTarget(name: "LaunchSet", dependencies: ["LaunchSetCore"]),
         .executableTarget(name: "SelfCheck", dependencies: ["LaunchSetCore"]),
+        .executableTarget(name: "LaunchSetCLI", dependencies: ["LaunchSetCore"]),
     ]
 )

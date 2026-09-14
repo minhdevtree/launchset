@@ -55,19 +55,11 @@ struct MenuBarView: View {
                 .controlSize(.small)
             }
             TimelineView(.everyMinute) { context in
-                Text(nextLine(now: context.date))
+                Text(store.nextLine(now: context.date))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-    }
-
-    private func nextLine(now: Date) -> String {
-        if store.config.settings.schedulesPaused { return "All schedules are paused" }
-        guard let next = store.nextRun(now: now), let group = store.group(next.rule.groupID) else { return "No schedules turned on" }
-        let parts = Schedule.relativeParts(next.date, now: now, calendar: .current)
-        let day = ["Today", "Tomorrow"].contains(parts.day) ? parts.day.lowercased() : "on \(parts.day)"
-        return "Next: \(next.rule.action.label) \"\(group.name)\" at \(parts.time) \(day)"
     }
 
     private var warnings: some View {

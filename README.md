@@ -35,6 +35,25 @@ The script builds a release binary, wraps it in `build/LaunchSet.app`, signs it 
 
 Always run the `.app` bundle. Notifications and Launch at login need a real bundle ID, so `swift run LaunchSet` won't work properly.
 
+## Command line
+
+`scripts/build-app.sh --install` also links `~/.local/bin/launchset`, a small command that talks to the running app. It is handy over SSH.
+
+```bash
+launchset                        # next run, pending closes, groups
+launchset groups                 # apps in each group, with role and state
+launchset open Agent Only        # names match without case, no quotes needed
+launchset close Work --force     # quit without waiting for apps to save
+launchset pause                  # or: resume
+launchset snooze Work            # or: skip Work, for a close that is about to happen
+launchset schedules
+launchset history 20
+```
+
+The command sends each request to LaunchSet over a Unix socket in `~/Library/Application Support/LaunchSet/` that only your user can open. LaunchSet does the work in your logged-in session, so runs from the command line go through the same queue and show up in History. LaunchSet has to be running, so turn on Launch at login if you rely on SSH. `ssh mac launchset` starts a shell that may not read `~/.zprofile`; use `ssh mac ~/.local/bin/launchset` if the command isn't found.
+
+The command runs and inspects groups. Creating or editing groups and schedules still happens in the LaunchSet window.
+
 ## Checks
 
 The scheduling logic lives in `LaunchSetCore`, which only depends on Foundation. `SelfCheck` exercises it without a test framework, since Command Line Tools don't ship XCTest:

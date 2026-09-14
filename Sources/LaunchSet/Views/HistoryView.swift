@@ -20,26 +20,18 @@ struct HistoryView: View {
             } else {
                 List(store.history) { record in
                     if record.results.isEmpty {
-                        Text(line(record))
+                        Text(record.line(now: .now, calendar: .current))
                     } else {
                         DisclosureGroup {
                             ForEach(Array(record.results.enumerated()), id: \.offset) { _, result in
                                 LabeledContent(result.name, value: result.label)
                             }
                         } label: {
-                            Text(line(record))
+                            Text(record.line(now: .now, calendar: .current))
                         }
                     }
                 }
             }
         }
-    }
-
-    /// "18:00 · Close "Work" · Scheduled · 3 closed, 1 still open"
-    private func line(_ r: RunRecord) -> String {
-        let calendar = Calendar.current
-        let parts = Schedule.relativeParts(r.date, now: .now, calendar: calendar)
-        let when = calendar.isDateInToday(r.date) ? parts.time : "\(parts.day) \(parts.time)"
-        return "\(when) · \(r.action.label) \"\(r.groupName)\" · \(r.source.label) · \(r.summary)"
     }
 }

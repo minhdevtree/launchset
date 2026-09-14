@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let store = AppStore()
     let notifier = Notifier()
     lazy var scheduler = Scheduler(store: store, notifier: notifier)
+    lazy var commandServer = CommandServer(store: store, scheduler: scheduler)
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // The delegate has to be in place before launch finishes to receive taps that launched the app.
@@ -47,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         scheduler.start()
+        commandServer.start()
         if let notice = store.loadNotice {
             // Deferred: a modal started inside didFinishLaunching gets cancelled while SwiftUI sets up its scenes.
             Task { showAlert("LaunchSet couldn't read its configuration", notice) }

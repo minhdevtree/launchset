@@ -123,6 +123,18 @@ check(RunRecord(date: .now, groupID: group, groupName: "A", action: .close, sour
                 results: [AppResult(bundleID: "a", name: "A", outcome: .closed), AppResult(bundleID: "b", name: "B", outcome: .notClosed)]).flash
       == "Closed 1 of 2 apps", "17e. flash for plain Close")
 
+// 18: CLI helpers
+check(CLI.table([["Work", "0/4 running"], ["Agent only", "1/1 running"]]) == "Work        0/4 running\nAgent only  1/1 running",
+      "18a. CLI.table aligns columns")
+check(CLI.table([["a", ""], ["bb", "c"]], indent: "  ") == "  a\n  bb  c", "18b. CLI.table trims trailing spaces and indents")
+let lineRecord = RunRecord(date: vnd("2026-09-18 18:00:00"), groupID: group, groupName: "Work", action: .close, source: .scheduled,
+                           results: [AppResult(bundleID: "a", name: "A", outcome: .closed)])
+check(lineRecord.line(now: vnd("2026-09-18 20:00:00"), calendar: vn) == "18:00 · Close \"Work\" · Scheduled · 1 closed"
+      && lineRecord.line(now: vnd("2026-09-19 08:00:00"), calendar: vn) == "Sep 18 18:00 · Close \"Work\" · Scheduled · 1 closed",
+      "18c. RunRecord.line")
+let request = try! JSON.decoder().decode(CLIRequest.self, from: JSON.encoder().encode(CLIRequest(args: ["open", "Agent", "only"])))
+check(request.args == ["open", "Agent", "only"], "18d. CLIRequest round trip")
+
 // Labels
 check(Schedule.relativeLabel(vnd("2026-09-18 18:00:00"), now: vnd("2026-09-18 09:00:00"), calendar: vn) == "Today, 18:00", "14a. Today")
 check(Schedule.relativeLabel(vnd("2026-09-21 08:30:00"), now: vnd("2026-09-18 19:00:00"), calendar: vn) == "Monday, 08:30", "14b. Weekday")
